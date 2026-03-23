@@ -1,29 +1,40 @@
-import { User, CreateUserDto, UpdateUserDto, UserRole, UserStatus, FindAllOptions } from '../types';
+import { User, CreateUserDto, UpdateUserDto, ChangePasswordDto, DisableAccountDto, UserFilters, UserProfileResponse } from '../entities/User';
+import { RequestContext, QueryRequest, ListResponse } from '../types/api';
 import Database from 'better-sqlite3';
+import bcrypt from 'bcryptjs';
 
 export interface IUserDAO {
   findById(id: string): Promise<User | null>;
-  findByEmail(email: string): Promise<User | null>;
-  findByStatus(status: UserStatus): Promise<User[]>;
-  create(user: CreateUserDto): Promise<User>;
-  findAll(options?: FindAllOptions): Promise<User[]>;
-  findByRole(role: UserRole): Promise<User[]>;
-  findByEmailVerificationToken(token: string): Promise<User | null>;
-  update(id: string, updates: Partial<User>): Promise<User>;
-  updateProfile(id: string, profile: Partial<User>): Promise<User>;
+  create(data: CreateUserDto): Promise<User>;
+  update(id: string, data: UpdateUserDto): Promise<User>;
   delete(id: string): Promise<boolean>;
-  findPendingApproval(): Promise<User[]>;
-  getPasswordHash(userId: string): Promise<string | null>;
-  setEmailVerified(id: string, verified: boolean): Promise<void>;
-  setApprovalStatus(id: string, approved: boolean, approvedBy?: string): Promise<void>;
+  findAll(query?: QueryRequest): Promise<ListResponse<User>>;
+  findOne(filters: Record<string, any>): Promise<User | null>;
+  findMany(filters: Record<string, any>, options?: {
+    limit?: number;
+    offset?: number;
+    orderBy?: string;
+    orderDirection?: 'asc' | 'desc';
+  }): Promise<User[]>;
+  findByEmail(email: string): Promise<User | null>;
+  updatePassword(id: string, currentPassword: string, newPassword: string): Promise<void>;
+  disableAccount(id: string, reason?: string): Promise<void>;
+  updateProfile(id: string, updates: UpdateUserDto): Promise<User>;
+  getUserProfile(id: string): Promise<UserProfileResponse>;
+  findByFilters(filters: UserFilters): Promise<User[]>;
 }
 
 export class UserDAO implements IUserDAO {
   constructor(private db: Database.Database) {}
 
+  // Generic DAO methods
   async findById(id: string): Promise<User | null> {
     try {
-      const stmt = this.db.prepare('SELECT id, email, first_name, last_name, password_hash, role, department, status, deleted, approval_code, phone, bio, email_verified, profile_image_url, requires_approval, approved_by, approved_at, created_at, updated_at FROM users WHERE id = ? AND deleted = 0');
+      const stmt = this.db.prepare(`
+        SELECT id, email, first_name, last_name, password_hash, role, department, status, deleted, 
+               phone, bio, email_verified, profile_image_url, comment, created_at, updated_at, last_login_at 
+        FROM users WHERE id = ? AND deleted = 0
+      `);
       const row = stmt.get(id) as any;
       return row ? this.mapRowToUser(row) : null;
     } catch (error) {
@@ -31,114 +42,94 @@ export class UserDAO implements IUserDAO {
     }
   }
 
-  async findByEmail(email: string): Promise<User | null> {
-    try {
-      const stmt = this.db.prepare('SELECT id, email, first_name, last_name, password_hash, role, department, status, deleted, approval_code, phone, bio, email_verified, profile_image_url, requires_approval, approved_by, approved_at, created_at, updated_at FROM users WHERE email = ? AND deleted = 0');
-      const row = stmt.get(email) as any;
-      return row ? this.mapRowToUser(row) : null;
-    } catch (error) {
-      throw new Error(`Failed to find user by email: ${error}`);
-    }
-  }
-
   async create(user: CreateUserDto): Promise<User> {
     try {
       const id = this.generateId();
       const now = new Date().toISOString();
+      const hashedPassword = await bcrypt.hash(user.password, 10);
       
       const stmt = this.db.prepare(`
-        INSERT INTO users (id, email, first_name, last_name, password_hash, role, department, phone, bio, approval_code, created_at, updated_at, deleted, email_verified)
+        INSERT INTO users (id, email, first_name, last_name, password_hash, role, department, phone, bio, created_at, updated_at, deleted, email_verified, status)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       
       stmt.run(
         id,
-        user.email,
+        user.email.toLowerCase(),
         user.firstName,
         user.lastName,
-        user.password, // Use the hashed password from service layer
+        hashedPassword,
         user.role || 'user',
         user.department || null,
         user.phone || null,
         user.bio || null,
-        user.approvalCode || null,
         now,
         now,
         0,
-        user.approvalCode ? 1 : 0
+        0,
+        'active'
       );
 
-      const created = await this.findById(id);
-      if (!created) {
+      const createdUser = await this.findById(id);
+      if (!createdUser) {
         throw new Error('Failed to retrieve created user');
       }
-      return created;
+      return createdUser;
     } catch (error) {
       throw new Error(`Failed to create user: ${error}`);
     }
   }
 
-  async findByStatus(status: UserStatus): Promise<User[]> {
+  async update(id: string, data: UpdateUserDto): Promise<User> {
     try {
-      const stmt = this.db.prepare('SELECT id, email, first_name, last_name, password_hash, role, department, status, deleted, approval_code, phone, bio, email_verified, profile_image_url, requires_approval, approved_by, approved_at, created_at, updated_at FROM users WHERE status = ? AND deleted = 0');
-      const rows = stmt.all(status) as any[];
-      return rows.map(row => this.mapRowToUser(row));
-    } catch (error) {
-      throw new Error(`Failed to find users by status: ${error}`);
-    }
-  }
-
-  async update(id: string, updates: Partial<User>): Promise<User> {
-    try {
-      const fields = [];
-      const values = [];
+      const updates: string[] = [];
+      const values: any[] = [];
       
-      if (updates.firstName !== undefined) {
-        fields.push('first_name = ?');
-        values.push(updates.firstName);
+      if (data.firstName) {
+        updates.push('first_name = ?');
+        values.push(data.firstName);
+      }
+      if (data.lastName) {
+        updates.push('last_name = ?');
+        values.push(data.lastName);
+      }
+      if (data.email) {
+        updates.push('email = ?');
+        values.push(data.email.toLowerCase());
+      }
+      if (data.department !== undefined) {
+        updates.push('department = ?');
+        values.push(data.department);
+      }
+      if (data.bio !== undefined) {
+        updates.push('bio = ?');
+        values.push(data.bio);
+      }
+      if (data.phone !== undefined) {
+        updates.push('phone = ?');
+        values.push(data.phone);
+      }
+      if (data.profileImageUrl !== undefined) {
+        updates.push('profile_image_url = ?');
+        values.push(data.profileImageUrl);
       }
       
-      if (updates.lastName !== undefined) {
-        fields.push('last_name = ?');
-        values.push(updates.lastName);
-      }
-      
-      if (updates.role !== undefined) {
-        fields.push('role = ?');
-        values.push(updates.role);
-      }
-      
-      if (updates.status !== undefined) {
-        fields.push('status = ?');
-        values.push(updates.status);
-      }
-      
-      if (updates.deleted !== undefined) {
-        fields.push('deleted = ?');
-        values.push(updates.deleted);
-      }
-      
-      if (updates.emailVerified !== undefined) {
-        fields.push('email_verified = ?');
-        values.push(updates.emailVerified);
-      }
-      
-      if (fields.length === 0) {
-        throw new Error('No fields to update');
-      }
-      
-      fields.push('updated_at = ?');
+      updates.push('updated_at = ?');
       values.push(new Date().toISOString());
       values.push(id);
+
+      const stmt = this.db.prepare(`
+        UPDATE users SET ${updates.join(', ')} 
+        WHERE id = ? AND deleted = 0
+      `);
       
-      const stmt = this.db.prepare(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`);
       stmt.run(...values);
-      
-      const updated = await this.findById(id);
-      if (!updated) {
+
+      const updatedUser = await this.findById(id);
+      if (!updatedUser) {
         throw new Error('Failed to retrieve updated user');
       }
-      return updated;
+      return updatedUser;
     } catch (error) {
       throw new Error(`Failed to update user: ${error}`);
     }
@@ -146,7 +137,10 @@ export class UserDAO implements IUserDAO {
 
   async delete(id: string): Promise<boolean> {
     try {
-      const stmt = this.db.prepare('UPDATE users SET is_active = 0, updated_at = ? WHERE id = ?');
+      const stmt = this.db.prepare(`
+        UPDATE users SET deleted = 1, updated_at = ? 
+        WHERE id = ? AND deleted = 0
+      `);
       const result = stmt.run(new Date().toISOString(), id);
       return result.changes > 0;
     } catch (error) {
@@ -154,175 +148,253 @@ export class UserDAO implements IUserDAO {
     }
   }
 
-  async findAll(options?: FindAllOptions): Promise<User[]> {
+  async findAll(query?: QueryRequest): Promise<ListResponse<User>> {
     try {
-      let query = 'SELECT * FROM users WHERE is_active = 1';
+      let sql = `
+        SELECT id, email, first_name, last_name, password_hash, role, department, status, deleted, 
+               phone, bio, email_verified, profile_image_url, comment, created_at, updated_at, last_login_at 
+        FROM users WHERE deleted = 0
+      `;
+      const params: any[] = [];
+
+      if (query?.filters) {
+        const conditions: string[] = [];
+        Object.entries(query.filters).forEach(([key, value]) => {
+          if (value !== undefined && value !== null) {
+            conditions.push(`${key} = ?`);
+            params.push(value);
+          }
+        });
+        if (conditions.length > 0) {
+          sql += ` AND ${conditions.join(' AND ')}`;
+        }
+      }
+
+      // Handle sorting
+      if (query?.sort) {
+        const sortEntries = Object.entries(query.sort);
+        if (sortEntries.length > 0) {
+          const [field, direction] = sortEntries[0];
+          sql += ` ORDER BY ${field} ${direction}`;
+        }
+      }
+
+      // Handle pagination
+      const limit = query?.pagination?.limit || 10;
+      const page = query?.pagination?.page || 1;
+      const offset = (page - 1) * limit;
+
+      sql += ` LIMIT ? OFFSET ?`;
+      params.push(limit, offset);
+
+      const stmt = this.db.prepare(sql);
+      const rows = stmt.all(...params) as any[];
+      
+      const users = rows.map(row => this.mapRowToUser(row));
+
+      return {
+        items: users,
+        pagination: {
+          page,
+          limit,
+          total: users.length,
+          totalPages: Math.ceil(users.length / limit),
+          hasNext: false,
+          hasPrev: page > 1
+        }
+      };
+    } catch (error) {
+      throw new Error(`Failed to find users: ${error}`);
+    }
+  }
+
+  async findOne(filters: Record<string, any>): Promise<User | null> {
+    try {
+      const conditions: string[] = [];
       const params: any[] = [];
       
-      if (options?.filters) {
-        const filters = Object.entries(options.filters);
-        if (filters.length > 0) {
-          query += ' AND ' + filters.map(([key]) => `${key} = ?`).join(' AND ');
-          params.push(...filters.map(([, value]) => value));
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          conditions.push(`${key} = ?`);
+          params.push(value);
         }
-      }
+      });
+
+      const sql = `
+        SELECT id, email, first_name, last_name, password_hash, role, department, status, deleted, 
+               phone, bio, email_verified, profile_image_url, comment, created_at, updated_at, last_login_at 
+        FROM users WHERE deleted = 0 AND ${conditions.join(' AND ')}
+        LIMIT 1
+      `;
+
+      const stmt = this.db.prepare(sql);
+      const row = stmt.get(...params) as any;
+      return row ? this.mapRowToUser(row) : null;
+    } catch (error) {
+      throw new Error(`Failed to find user: ${error}`);
+    }
+  }
+
+  async findMany(filters: Record<string, any>, options?: {
+    limit?: number;
+    offset?: number;
+    orderBy?: string;
+    orderDirection?: 'asc' | 'desc';
+  }): Promise<User[]> {
+    try {
+      const conditions: string[] = [];
+      const params: any[] = [];
       
-      if (options?.sortBy) {
-        query += ` ORDER BY ${options.sortBy} ${options.sortOrder === 'desc' ? 'DESC' : 'ASC'}`;
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          conditions.push(`${key} = ?`);
+          params.push(value);
+        }
+      });
+
+      let sql = `
+        SELECT id, email, first_name, last_name, password_hash, role, department, status, deleted, 
+               phone, bio, email_verified, profile_image_url, comment, created_at, updated_at, last_login_at 
+        FROM users WHERE deleted = 0
+      `;
+
+      if (conditions.length > 0) {
+        sql += ` AND ${conditions.join(' AND ')}`;
       }
-      
+
+      if (options?.orderBy) {
+        sql += ` ORDER BY ${options.orderBy} ${options.orderDirection || 'asc'}`;
+      }
+
       if (options?.limit) {
-        query += ' LIMIT ?';
+        sql += ` LIMIT ?`;
         params.push(options.limit);
-        
-        if (options?.page && options.page > 1) {
-          const offset = (options.page - 1) * options.limit;
-          query += ' OFFSET ?';
-          params.push(offset);
+        if (options?.offset) {
+          sql += ` OFFSET ?`;
+          params.push(options.offset);
         }
       }
-      
-      const stmt = this.db.prepare(query);
+
+      const stmt = this.db.prepare(sql);
       const rows = stmt.all(...params) as any[];
       return rows.map(row => this.mapRowToUser(row));
     } catch (error) {
-      throw new Error(`Failed to find all users: ${error}`);
+      throw new Error(`Failed to find users: ${error}`);
     }
   }
 
-  async findByRole(role: UserRole): Promise<User[]> {
+  // User-specific methods
+  async findByEmail(email: string): Promise<User | null> {
+    return this.findOne({ email: email.toLowerCase() });
+  }
+
+  async updatePassword(id: string, currentPassword: string, newPassword: string): Promise<void> {
     try {
-      const stmt = this.db.prepare('SELECT * FROM users WHERE role = ? AND is_active = 1');
-      const rows = stmt.all(role) as any[];
-      return rows.map(row => this.mapRowToUser(row));
+      const user = await this.findById(id);
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      const isValidPassword = await bcrypt.compare(currentPassword, user.passwordHash);
+      if (!isValidPassword) {
+        throw new Error('Current password is incorrect');
+      }
+
+      const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+      
+      const stmt = this.db.prepare(`
+        UPDATE users SET password_hash = ?, updated_at = ? 
+        WHERE id = ? AND deleted = 0
+      `);
+      
+      const result = stmt.run(hashedNewPassword, new Date().toISOString(), id);
+      if (result.changes === 0) {
+        throw new Error('Failed to update password');
+      }
     } catch (error) {
-      throw new Error(`Failed to find users by role: ${error}`);
+      throw new Error(`Failed to update password: ${error}`);
     }
   }
 
+  async disableAccount(id: string, reason?: string): Promise<void> {
+    try {
+      const stmt = this.db.prepare(`
+        UPDATE users SET status = 'disabled', comment = ?, updated_at = ? 
+        WHERE id = ? AND deleted = 0
+      `);
+      
+      const result = stmt.run(reason || null, new Date().toISOString(), id);
+      if (result.changes === 0) {
+        throw new Error('Failed to disable account');
+      }
+    } catch (error) {
+      throw new Error(`Failed to disable account: ${error}`);
+    }
+  }
+
+  async updateProfile(id: string, updates: UpdateUserDto): Promise<User> {
+    return this.update(id, updates);
+  }
+
+  async getUserProfile(id: string): Promise<UserProfileResponse> {
+    try {
+      const user = await this.findById(id);
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      return {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+        department: user.department,
+        status: user.status,
+        bio: user.bio,
+        phone: user.phone,
+        emailVerified: user.emailVerified ? 1 : 0, // Convert boolean to number
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+        lastLoginAt: user.lastLoginAt,
+        profileImageUrl: user.profileImageUrl
+      };
+    } catch (error) {
+      throw new Error(`Failed to get user profile: ${error}`);
+    }
+  }
+
+  async findByFilters(filters: UserFilters): Promise<User[]> {
+    return this.findMany(filters);
+  }
+
+  // Helper methods
   private mapRowToUser(row: any): User {
     return {
       id: row.id,
       email: row.email,
       firstName: row.first_name,
       lastName: row.last_name,
-      passwordHash: row.password_hash || '', // Provide default empty string if null
-      role: row.role as UserRole,
-      department: row.department || undefined,
-      status: row.status as UserStatus,
-      deleted: row.deleted || 0,
-      approvalCode: row.approval_code || undefined,
-      phone: row.phone || undefined,
-      bio: row.bio || undefined,
-      emailVerified: row.email_verified || 0,
-      profileImageUrl: row.profile_image_url || undefined,
-      requiresApproval: row.requires_approval || 0,
-      approvedBy: row.approved_by || undefined,
-      approvedAt: row.approved_at ? new Date(row.approved_at) : undefined,
+      passwordHash: row.password_hash,
+      role: row.role,
+      department: row.department,
+      status: row.status,
+      deleted: row.deleted ? 1 : 0, // Convert boolean to number
+      bio: row.bio,
+      phone: row.phone,
+      emailVerified: row.email_verified ? 1 : 0, // Convert boolean to number
+      comment: row.comment,
       createdAt: new Date(row.created_at),
-      updatedAt: new Date(row.updated_at)
+      updatedAt: new Date(row.updated_at),
+      lastLoginAt: row.last_login_at ? new Date(row.last_login_at) : undefined,
+      profileImageUrl: row.profile_image_url,
+      requiresApproval: row.requires_approval || 0,
+      approvedBy: row.approved_by,
+      approvedAt: row.approved_at ? new Date(row.approved_at) : undefined
     };
   }
 
   private generateId(): string {
-    return Math.random().toString(36).substring(2) + Date.now().toString(36);
-  }
-
-  async getPasswordHash(userId: string): Promise<string | null> {
-    try {
-      const stmt = this.db.prepare('SELECT password_hash FROM users WHERE id = ? AND deleted = 0');
-      const row = stmt.get(userId) as any;
-      return row ? row.password_hash : null;
-    } catch (error) {
-      throw new Error(`Failed to get password hash: ${error}`);
-    }
-  }
-
-  async findByEmailVerificationToken(token: string): Promise<User | null> {
-    try {
-      const stmt = this.db.prepare('SELECT * FROM users WHERE email_verification_token = ? AND is_active = 1');
-      const row = stmt.get(token) as any;
-      return row ? this.mapRowToUser(row) : null;
-    } catch (error) {
-      throw new Error(`Failed to find user by email verification token: ${error}`);
-    }
-  }
-
-  async updateProfile(id: string, profile: Partial<User>): Promise<User> {
-    try {
-      const fields = [];
-      const values = [];
-      
-      if (profile.firstName !== undefined) {
-        fields.push('first_name = ?');
-        values.push(profile.firstName);
-      }
-      if (profile.lastName !== undefined) {
-        fields.push('last_name = ?');
-        values.push(profile.lastName);
-      }
-      if (profile.phone !== undefined) {
-        fields.push('phone = ?');
-        values.push(profile.phone);
-      }
-      if (profile.department !== undefined) {
-        fields.push('department = ?');
-        values.push(profile.department);
-      }
-      if (profile.bio !== undefined) {
-        fields.push('bio = ?');
-        values.push(profile.bio);
-      }
-      if (profile.profileImageUrl !== undefined) {
-        fields.push('profile_image_url = ?');
-        values.push(profile.profileImageUrl);
-      }
-      
-      if (fields.length === 0) {
-        throw new Error('No fields to update');
-      }
-      
-      fields.push('updated_at = CURRENT_TIMESTAMP');
-      values.push(id);
-      
-      const stmt = this.db.prepare(`UPDATE users SET ${fields.join(', ')} WHERE id = ? AND is_active = 1`);
-      stmt.run(...values);
-      
-      const updated = await this.findById(id);
-      if (!updated) {
-        throw new Error('Failed to retrieve updated user');
-      }
-      return updated;
-    } catch (error) {
-      throw new Error(`Failed to update user profile: ${error}`);
-    }
-  }
-
-  async findPendingApproval(): Promise<User[]> {
-    try {
-      const stmt = this.db.prepare('SELECT * FROM users WHERE requires_approval = 1 AND approved_at IS NULL AND is_active = 1');
-      const rows = stmt.all() as any[];
-      return rows.map(row => this.mapRowToUser(row));
-    } catch (error) {
-      throw new Error(`Failed to find pending approval users: ${error}`);
-    }
-  }
-
-  async setEmailVerified(id: string, verified: boolean): Promise<void> {
-    try {
-      const stmt = this.db.prepare('UPDATE users SET email_verified = ?, email_verification_token = NULL, email_verification_expires_at = NULL WHERE id = ?');
-      stmt.run(verified ? 1 : 0, id);
-    } catch (error) {
-      throw new Error(`Failed to set email verification status: ${error}`);
-    }
-  }
-
-  async setApprovalStatus(id: string, approved: boolean, approvedBy?: string): Promise<void> {
-    try {
-      const stmt = this.db.prepare('UPDATE users SET requires_approval = 0, approved_at = ?, approved_by = ? WHERE id = ?');
-      stmt.run(approved ? new Date().toISOString() : null, approvedBy || null, id);
-    } catch (error) {
-      throw new Error(`Failed to set approval status: ${error}`);
-    }
+    return `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 }

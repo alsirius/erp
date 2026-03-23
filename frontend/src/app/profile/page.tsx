@@ -7,6 +7,8 @@ import { UpdateUserProfileRequest } from '@/types'
 export default function ProfilePage() {
   const { user, loading } = useAuth()
   const [isEditing, setIsEditing] = useState(false)
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false)
+  const [showDisableDialog, setShowDisableDialog] = useState(false)
   const [formData, setFormData] = useState<UpdateUserProfileRequest>({
     firstName: user?.firstName || '',
     lastName: user?.lastName || '',
@@ -15,6 +17,12 @@ export default function ProfilePage() {
     bio: user?.bio || '',
     profileImageUrl: user?.profileImageUrl || ''
   })
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  })
+  const [disableReason, setDisableReason] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [message, setMessage] = useState('')
 
@@ -61,9 +69,82 @@ export default function ProfilePage() {
     }
   }
 
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setMessage('New passwords do not match')
+      return
+    }
+
+    setIsSaving(true)
+    setMessage('')
+
+    try {
+      const response = await fetch('/api/users/change-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          currentPassword: passwordData.currentPassword,
+          newPassword: passwordData.newPassword
+        })
+      })
+
+      if (response.ok) {
+        setMessage('Password changed successfully!')
+        setShowPasswordDialog(false)
+        setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' })
+      } else {
+        setMessage('Failed to change password')
+      }
+    } catch (error) {
+      setMessage('Error changing password')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleDisableAccount = async () => {
+    setIsSaving(true)
+    setMessage('')
+
+    try {
+      const response = await fetch('/api/users/disable-account', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ reason: disableReason })
+      })
+
+      if (response.ok) {
+        setMessage('Account disabled successfully')
+        localStorage.removeItem('token')
+        window.location.href = '/login'
+      } else {
+        setMessage('Failed to disable account')
+      }
+    } catch (error) {
+      setMessage('Error disabling account')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
     setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }))
+  }
+
+  const handlePasswordInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setPasswordData(prev => ({
       ...prev,
       [name]: value
     }))
@@ -78,12 +159,26 @@ export default function ProfilePage() {
               <div className="flex justify-between items-center mb-6">
                 <h1 className="text-2xl font-bold text-gray-900">Profile</h1>
                 {!isEditing && (
-                  <button
-                    onClick={() => setIsEditing(true)}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
-                  >
-                    Edit Profile
-                  </button>
+                  <div className="space-x-3">
+                    <button
+                      onClick={() => setShowPasswordDialog(true)}
+                      className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+                    >
+                      Change Password
+                    </button>
+                    <button
+                      onClick={() => setShowDisableDialog(true)}
+                      className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+                    >
+                      Disable Account
+                    </button>
+                    <button
+                      onClick={() => setIsEditing(true)}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+                    >
+                      Edit Profile
+                    </button>
+                  </div>
                 )}
               </div>
 
@@ -140,8 +235,8 @@ export default function ProfilePage() {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-sm text-gray-600">Account Status:</span>
-                        <span className={`text-sm font-medium ${user.isActive ? 'text-green-600' : 'text-red-600'}`}>
-                          {user.isActive ? 'Active' : 'Inactive'}
+                        <span className={`text-sm font-medium ${user.status === 'active' ? 'text-green-600' : 'text-red-600'}`}>
+                          {user.status === 'active' ? 'Active' : user.status}
                         </span>
                       </div>
                       <div className="flex justify-between">
@@ -251,6 +346,128 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* Password Change Dialog */}
+      {showPasswordDialog && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg leading-6 font-medium text-gray-900">Change Password</h3>
+              <form onSubmit={handlePasswordChange} className="mt-4 space-y-4">
+                <div>
+                  <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700">
+                    Current Password
+                  </label>
+                  <input
+                    type="password"
+                    name="currentPassword"
+                    id="currentPassword"
+                    value={passwordData.currentPassword}
+                    onChange={handlePasswordInputChange}
+                    required
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700">
+                    New Password
+                  </label>
+                  <input
+                    type="password"
+                    name="newPassword"
+                    id="newPassword"
+                    value={passwordData.newPassword}
+                    onChange={handlePasswordInputChange}
+                    required
+                    minLength={8}
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+                    Confirm New Password
+                  </label>
+                  <input
+                    type="password"
+                    name="confirmPassword"
+                    id="confirmPassword"
+                    value={passwordData.confirmPassword}
+                    onChange={handlePasswordInputChange}
+                    required
+                    minLength={8}
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  />
+                </div>
+                <div className="flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowPasswordDialog(false)
+                      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' })
+                    }}
+                    className="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-md text-sm font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSaving}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium disabled:opacity-50"
+                  >
+                    {isSaving ? 'Changing...' : 'Change Password'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Disable Account Dialog */}
+      {showDisableDialog && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg leading-6 font-medium text-gray-900">Disable Account</h3>
+              <div className="mt-2">
+                <p className="text-sm text-gray-500">
+                  Are you sure you want to disable your account? This action can be reversed by contacting an administrator.
+                </p>
+              </div>
+              <div className="mt-4">
+                <label htmlFor="disableReason" className="block text-sm font-medium text-gray-700">
+                  Reason (optional)
+                </label>
+                <textarea
+                  id="disableReason"
+                  rows={3}
+                  value={disableReason}
+                  onChange={(e) => setDisableReason(e.target.value)}
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                />
+              </div>
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  onClick={() => {
+                    setShowDisableDialog(false)
+                    setDisableReason('')
+                  }}
+                  className="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-md text-sm font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDisableAccount}
+                  disabled={isSaving}
+                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium disabled:opacity-50"
+                >
+                  {isSaving ? 'Disabling...' : 'Disable Account'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

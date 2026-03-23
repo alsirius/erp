@@ -22,22 +22,27 @@ TARGET="both"  # Can be "frontend", "backend", or "both"
 # Function to show help
 show_help() {
     echo -e "${YELLOW}Usage:${NC}"
-    echo "  ./rebuild-servers.sh [mode] [environment] [target]"
-    echo
-    echo -e "${YELLOW}Modes:${NC}"
-    echo "  1, restart   - Just restart development servers"
-    echo "  2, rebuild   - Rebuild and restart servers"
-    echo "  3, clean     - Full clean, rebuild, and restart"
-    echo "  -h, --help   - Show this help message"
-    echo
-    echo -e "${YELLOW}Environment:${NC}"
-    echo "  dev         - Use development environment (.env.development) [default]"
-    echo "  prod        - Use production environment (.env.production)"
-    echo
-    echo -e "${YELLOW}Target:${NC}"
-    echo "  -f, --frontend  - Only process frontend"
-    echo "  -b, --backend   - Only process backend"
-    echo "  (none)          - Process both frontend and backend [default]"
+    echo "Usage:
+  ./rebuild-servers.sh [mode] [environment] [target] [options]
+
+Modes:
+  1, restart   - Just restart development servers
+  2, rebuild   - Rebuild and restart servers
+  3, clean     - Full clean, rebuild, and restart
+  -h, --help   - Show this help message
+
+Environment:
+  dev         - Use development environment (.env.development) [default]
+  prod        - Use production environment (.env.production)
+
+Target:
+  -f, --frontend  - Only process frontend
+  -b, --backend   - Only process backend
+  (none)          - Process both frontend and backend [default]
+
+Options:
+  -s, --seed    - Seed database with sample users (admin, manager, user)
+  -v, --verbose  - Show verbose output"
 }
 
 # Function to check if environment files exist
@@ -310,6 +315,14 @@ while [[ $# -gt 0 ]]; do
             TARGET="backend"
             shift
             ;;
+        -s|--seed)
+            SEED_DATABASE=true
+            shift
+            ;;
+        -v|--verbose)
+            VERBOSE=true
+            shift
+            ;;
         -h|--help)
             show_help
             exit 0
@@ -349,6 +362,19 @@ case $MODE in
         kill_processes
         install_dependencies $TARGET
         start_dev_servers $TARGET
+        
+        # Seed database if requested
+        if [ "$SEED_DATABASE" = "true" ]; then
+            echo -e "${BLUE}Seeding database with sample users...${NC}"
+            cd "$BACKEND_DIR"
+            npm run seed
+            if [ $? -eq 0 ]; then
+                echo -e "${GREEN}Database seeded successfully!${NC}"
+            else
+                echo -e "${RED}Database seeding failed!${NC}"
+            fi
+        fi
+        
         show_status
         ;;
         

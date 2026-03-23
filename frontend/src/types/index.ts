@@ -20,6 +20,7 @@ export interface User {
   bio?: string;
   emailVerified: boolean;
   isActive: boolean;
+  status: string; // Added status field
   requiresApproval: boolean;
   approvedBy?: string;
   approvedAt?: string;

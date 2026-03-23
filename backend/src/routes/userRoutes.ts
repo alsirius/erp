@@ -30,10 +30,13 @@ router.use(tokenAuth);
 // User profile routes
 router.get('/profile', userController.getProfile);
 router.put('/profile', userController.updateProfile);
+router.post('/change-password', userController.changePassword);
+router.post('/disable-account', userController.disableAccount);
 
 // Admin only routes
 router.use(adminAuth);
 router.get('/', userController.getAllUsers);
+router.get('/search', userController.findUsers);
 router.get('/:id', userController.getUserById);
 router.put('/:id', userController.updateUser);
 router.delete('/:id', userController.deleteUser);
