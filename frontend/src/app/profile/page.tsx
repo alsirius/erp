@@ -51,7 +51,7 @@ export default function ProfilePage() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
         },
         body: JSON.stringify(formData)
       })
@@ -84,7 +84,7 @@ export default function ProfilePage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
         },
         body: JSON.stringify({
           currentPassword: passwordData.currentPassword,
@@ -115,14 +115,14 @@ export default function ProfilePage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
         },
         body: JSON.stringify({ reason: disableReason })
       })
 
       if (response.ok) {
         setMessage('Account disabled successfully')
-        localStorage.removeItem('token')
+        localStorage.removeItem('authToken')
         window.location.href = '/login'
       } else {
         setMessage('Failed to disable account')
