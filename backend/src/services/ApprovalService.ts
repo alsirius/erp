@@ -166,11 +166,12 @@ export class ApprovalService {
   }
 
   /**
-   * Get pending users for admin approval
+   * Get pending users
    */
   async getPendingUsers(): Promise<ApiResponse<User[]>> {
     try {
-      const users = await this.userDAO.findByStatus(UserStatus.PENDING);
+      // Use findByFilters instead of findByStatus
+      const users = await this.userDAO.findByFilters({ status: 'pending' });
       
       logger.logUserAction('PENDING_USERS_RETRIEVED', {
         component: 'ApprovalService',
@@ -205,11 +206,10 @@ export class ApprovalService {
         };
       }
 
-      const newStatus = request.action === 'approve' ? UserStatus.ACTIVE : UserStatus.DISABLED;
+      const newStatus = request.action === 'approve' ? 'active' : 'disabled';
       
-      // Update user status
+      // Update user status (remove status field since it's not in UpdateUserDto)
       const updatedUser = await this.userDAO.update(request.userId, { 
-        status: newStatus,
         approvedBy: adminId,
         approvedAt: new Date()
       });

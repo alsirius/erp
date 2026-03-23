@@ -14,10 +14,8 @@ export interface User {
   bio?: string;
   phone?: string;
   emailVerified: number; // Changed to number to match types/index.ts
-  comment?: string;
   createdAt: Date;
   updatedAt: Date;
-  lastLoginAt?: Date;
   profileImageUrl?: string;
   requiresApproval: number; // Mapped from requires_approval
   approvedBy?: string; // Mapped from approved_by

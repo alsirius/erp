@@ -133,7 +133,7 @@ export abstract class GenericService<T, CreateDto, UpdateDto> implements IGeneri
 
   // Validation helpers
   protected validateId(id: string): boolean {
-    return id && typeof id === 'string' && id.trim().length > 0;
+    return Boolean(id && typeof id === 'string' && id.trim().length > 0);
   }
 
   protected validateCreateData(data: CreateDto): string[] {

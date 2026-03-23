@@ -199,7 +199,7 @@ export abstract class BaseDAO<T, CreateDto, UpdateDto> implements IGenericDAO<T,
 
     try {
       const result = await this.executeQuery(query, values);
-      return result.rows.map(row => this.mapRowToEntity(row));
+      return result.rows.map((row: any) => this.mapRowToEntity(row));
     } catch (error) {
       throw new Error(`Failed to bulk create ${this.tableName}: ${error}`);
     }
@@ -245,7 +245,7 @@ export abstract class BaseDAO<T, CreateDto, UpdateDto> implements IGenericDAO<T,
 
     try {
       const result = await this.executeQuery(query, values);
-      return result.rows.map(row => this.mapRowToEntity(row));
+      return result.rows.map((row: any) => this.mapRowToEntity(row));
     } catch (error) {
       throw new Error(`Failed to bulk update ${this.tableName}: ${error}`);
     }

@@ -43,7 +43,7 @@ export abstract class GenericController<T, CreateDto, UpdateDto> {
       res.status(HttpStatus.OK).json(response);
     } catch (error) {
       const errorResponse = ResponseBuilder.error(
-        'INTERNAL_ERROR',
+        ApiErrorCode.INTERNAL_ERROR,
         `Failed to get resource: ${(error as Error).message}`
       );
       res.status(HttpStatus.INTERNAL_SERVER_ERROR).json(errorResponse);
@@ -60,7 +60,7 @@ export abstract class GenericController<T, CreateDto, UpdateDto> {
       res.status(HttpStatus.OK).json(response);
     } catch (error) {
       const errorResponse = ResponseBuilder.error(
-        'INTERNAL_ERROR',
+        ApiErrorCode.INTERNAL_ERROR,
         `Failed to get resources: ${(error as Error).message}`
       );
       res.status(HttpStatus.INTERNAL_SERVER_ERROR).json(errorResponse);
@@ -77,7 +77,7 @@ export abstract class GenericController<T, CreateDto, UpdateDto> {
       res.status(HttpStatus.OK).json(response);
     } catch (error) {
       const errorResponse = ResponseBuilder.error(
-        'INTERNAL_ERROR',
+        ApiErrorCode.INTERNAL_ERROR,
         `Failed to update resource: ${(error as Error).message}`
       );
       res.status(HttpStatus.INTERNAL_SERVER_ERROR).json(errorResponse);
@@ -96,7 +96,7 @@ export abstract class GenericController<T, CreateDto, UpdateDto> {
       res.status(HttpStatus.OK).json(response);
     } catch (error) {
       const errorResponse = ResponseBuilder.error(
-        'INTERNAL_ERROR',
+        ApiErrorCode.INTERNAL_ERROR,
         `Failed to delete resource: ${(error as Error).message}`
       );
       res.status(HttpStatus.INTERNAL_SERVER_ERROR).json(errorResponse);
@@ -113,7 +113,7 @@ export abstract class GenericController<T, CreateDto, UpdateDto> {
       res.status(HttpStatus.CREATED).json(response);
     } catch (error) {
       const errorResponse = ResponseBuilder.error(
-        'INTERNAL_ERROR',
+        ApiErrorCode.INTERNAL_ERROR,
         `Failed to bulk create resources: ${(error as Error).message}`
       );
       res.status(HttpStatus.INTERNAL_SERVER_ERROR).json(errorResponse);
@@ -130,7 +130,7 @@ export abstract class GenericController<T, CreateDto, UpdateDto> {
       res.status(HttpStatus.OK).json(response);
     } catch (error) {
       const errorResponse = ResponseBuilder.error(
-        'INTERNAL_ERROR',
+        ApiErrorCode.INTERNAL_ERROR,
         `Failed to bulk update resources: ${(error as Error).message}`
       );
       res.status(HttpStatus.INTERNAL_SERVER_ERROR).json(errorResponse);
@@ -149,7 +149,7 @@ export abstract class GenericController<T, CreateDto, UpdateDto> {
       res.status(HttpStatus.OK).json(response);
     } catch (error) {
       const errorResponse = ResponseBuilder.error(
-        'INTERNAL_ERROR',
+        ApiErrorCode.INTERNAL_ERROR,
         `Failed to bulk delete resources: ${(error as Error).message}`
       );
       res.status(HttpStatus.INTERNAL_SERVER_ERROR).json(errorResponse);
@@ -226,8 +226,8 @@ export abstract class GenericController<T, CreateDto, UpdateDto> {
     return errors;
   }
 
-  protected validateId(id: string): id is string {
-    return id && typeof id === 'string' && id.length > 0;
+  protected validateId(id: string): boolean {
+    return Boolean(id && typeof id === 'string' && id.length > 0);
   }
 }
 

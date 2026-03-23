@@ -42,7 +42,7 @@ export class ErrorHandler {
     // Build appropriate response based on error type
     if (error.isOperational) {
       return ResponseBuilder.error(
-        error.code || ApiErrorCode.INTERNAL_ERROR,
+        (error.code as ApiErrorCode) || ApiErrorCode.INTERNAL_ERROR,
         error.message,
         {
           ...error.details,
@@ -108,13 +108,15 @@ export class ErrorHandler {
 
   private buildErrorContext(error: AppError, req?: Request): ErrorContext {
     return {
-      requestId: req?.headers['x-request-id'] || this.generateRequestId(),
-      userId: req?.user?.userId,
+      requestId: Array.isArray(req?.headers['x-request-id']) 
+        ? req?.headers['x-request-id'][0] || this.generateRequestId()
+        : req?.headers['x-request-id'] || this.generateRequestId(),
+      userId: (req as any)?.user?.userId,
       ip: req?.ip,
       userAgent: req?.get('User-Agent'),
       timestamp: new Date().toISOString(),
-      path: req?.path,
-      method: req?.method,
+      path: req?.path || '',
+      method: req?.method || '',
     };
   }
 

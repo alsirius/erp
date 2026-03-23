@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { ResponseBuilder, HttpStatus } from '../types/api';
+import { ResponseBuilder, HttpStatus, ApiErrorCode } from '../types/api';
 
 export interface HealthCheck {
   status: 'healthy' | 'unhealthy';
@@ -52,7 +52,7 @@ export class HealthController {
         memory: this.getMemoryUsage(),
       };
 
-      const response = ResponseBuilder.error('INTERNAL_ERROR', 'Health check failed');
+      const response = ResponseBuilder.error(ApiErrorCode.INTERNAL_ERROR, 'Health check failed');
       res.status(HttpStatus.SERVICE_UNAVAILABLE).json(response);
     }
   }
@@ -72,7 +72,7 @@ export class HealthController {
       const dbStatus = await this.checkDatabase();
       
       if (dbStatus.status === 'disconnected') {
-        const response = ResponseBuilder.error('SERVICE_UNAVAILABLE', 'Database not connected');
+        const response = ResponseBuilder.error(ApiErrorCode.EXTERNAL_SERVICE_ERROR, 'Database not connected');
         res.status(HttpStatus.SERVICE_UNAVAILABLE).json(response);
         return;
       }
@@ -84,7 +84,7 @@ export class HealthController {
       });
       res.status(HttpStatus.OK).json(response);
     } catch (error) {
-      const response = ResponseBuilder.error('SERVICE_UNAVAILABLE', 'Service not ready');
+      const response = ResponseBuilder.error(ApiErrorCode.EXTERNAL_SERVICE_ERROR, 'Service not ready');
       res.status(HttpStatus.SERVICE_UNAVAILABLE).json(response);
     }
   }

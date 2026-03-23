@@ -32,7 +32,7 @@ export class UserDAO implements IUserDAO {
     try {
       const stmt = this.db.prepare(`
         SELECT id, email, first_name, last_name, password_hash, role, department, status, deleted, 
-               phone, bio, email_verified, profile_image_url, comment, created_at, updated_at, last_login_at 
+               phone, bio, email_verified, profile_image_url, created_at, updated_at 
         FROM users WHERE id = ? AND deleted = 0
       `);
       const row = stmt.get(id) as any;
@@ -152,7 +152,7 @@ export class UserDAO implements IUserDAO {
     try {
       let sql = `
         SELECT id, email, first_name, last_name, password_hash, role, department, status, deleted, 
-               phone, bio, email_verified, profile_image_url, comment, created_at, updated_at, last_login_at 
+               phone, bio, email_verified, profile_image_url, created_at, updated_at 
         FROM users WHERE deleted = 0
       `;
       const params: any[] = [];
@@ -222,7 +222,7 @@ export class UserDAO implements IUserDAO {
 
       const sql = `
         SELECT id, email, first_name, last_name, password_hash, role, department, status, deleted, 
-               phone, bio, email_verified, profile_image_url, comment, created_at, updated_at, last_login_at 
+               phone, bio, email_verified, profile_image_url, created_at, updated_at 
         FROM users WHERE deleted = 0 AND ${conditions.join(' AND ')}
         LIMIT 1
       `;
@@ -254,7 +254,7 @@ export class UserDAO implements IUserDAO {
 
       let sql = `
         SELECT id, email, first_name, last_name, password_hash, role, department, status, deleted, 
-               phone, bio, email_verified, profile_image_url, comment, created_at, updated_at, last_login_at 
+               phone, bio, email_verified, profile_image_url, created_at, updated_at 
         FROM users WHERE deleted = 0
       `;
 
@@ -319,11 +319,11 @@ export class UserDAO implements IUserDAO {
   async disableAccount(id: string, reason?: string): Promise<void> {
     try {
       const stmt = this.db.prepare(`
-        UPDATE users SET status = 'disabled', comment = ?, updated_at = ? 
+        UPDATE users SET status = 'disabled', updated_at = ? 
         WHERE id = ? AND deleted = 0
       `);
       
-      const result = stmt.run(reason || null, new Date().toISOString(), id);
+      const result = stmt.run(new Date().toISOString(), id);
       if (result.changes === 0) {
         throw new Error('Failed to disable account');
       }
@@ -356,7 +356,6 @@ export class UserDAO implements IUserDAO {
         emailVerified: user.emailVerified ? 1 : 0, // Convert boolean to number
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
-        lastLoginAt: user.lastLoginAt,
         profileImageUrl: user.profileImageUrl
       };
     } catch (error) {
@@ -383,10 +382,8 @@ export class UserDAO implements IUserDAO {
       bio: row.bio,
       phone: row.phone,
       emailVerified: row.email_verified ? 1 : 0, // Convert boolean to number
-      comment: row.comment,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
-      lastLoginAt: row.last_login_at ? new Date(row.last_login_at) : undefined,
       profileImageUrl: row.profile_image_url,
       requiresApproval: row.requires_approval || 0,
       approvedBy: row.approved_by,
