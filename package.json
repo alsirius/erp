@@ -1,0 +1,66 @@
+{
+  "name": "siriux-premium-webapp-starter",
+  "version": "1.0.0",
+  "description": "A comprehensive, production-ready web application starter kit designed for rapid development of enterprise-grade applications",
+  "main": "index.js",
+  "scripts": {
+    "setup": "chmod +x scripts/setup.sh && node scripts/setup-wrapper.js",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "build": "npm run build:backend && npm run build:frontend",
+    "build:backend": "cd backend && npm run build",
+    "build:frontend": "cd frontend && npm run build",
+    "start": "npm run start:backend",
+    "start:backend": "cd backend && npm run start",
+    "start:frontend": "cd frontend && npm run start",
+    "test": "npm run test:backend && npm run test:frontend",
+    "test:backend": "cd backend && npm test",
+    "test:frontend": "cd frontend && npm test",
+    "lint": "npm run lint:backend && npm run lint:frontend",
+    "lint:backend": "cd backend && npm run lint",
+    "lint:frontend": "cd frontend && npm run lint",
+    "clean": "npm run clean:backend && npm run clean:frontend",
+    "clean:backend": "cd backend && rm -rf dist node_modules",
+    "clean:frontend": "cd frontend && rm -rf build node_modules",
+    "db:migrate": "cd backend && npm run db:migrate",
+    "db:seed": "cd backend && npm run db:seed"
+  },
+  "keywords": [
+    "webapp",
+    "starter",
+    "boilerplate",
+    "react",
+    "nextjs",
+    "nodejs",
+    "express",
+    "typescript",
+    "postgresql",
+    "sqlite",
+    "jwt",
+    "authentication",
+    "fullstack",
+    "saas",
+    "template",
+    "premium",
+    "enterprise",
+    "production-ready"
+  ],
+  "author": "Alsirius",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/alsirius/siriux.git"
+  },
+  "bugs": {
+    "url": "https://github.com/alsirius/siriux/issues"
+  },
+  "homepage": "https://github.com/alsirius/siriux#readme",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  }
+}

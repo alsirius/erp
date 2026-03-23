@@ -1,0 +1,435 @@
+import express, { Router, Request, Response } from 'express';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import { User, AuthenticatedRequest, LoginRequest, RegisterRequest, UserStatus, UserRole, RegistrationCode, EmailVerification } from '../types';
+import { UserService } from '../services/UserService';
+import { DatabaseManager } from '../database/DatabaseManager';
+import { UserDAO } from '../dao/UserDAO';
+import logger from '../utils/logger';
+
+const router: Router = express.Router();
+const db = DatabaseManager.getInstance().initialize('./database/siriux.db');
+const userDAO = new UserDAO(db);
+const userService = new UserService(userDAO);
+
+interface RegistrationCodeData {
+  id: string;
+  code: string;
+  created_by: string;
+  created_at: string;
+  used_by: string | null;
+  used_at: string | null;
+  usable_by: string;
+}
+
+// Login endpoint (adapted from Smartify)
+router.post('/login', async (req: Request<{}, {}, LoginRequest>, res: Response) => {
+  try {
+    const { email, password } = req.body;
+    const emailLower = email.toLowerCase();
+    
+    const user = await userService.findByEmail(emailLower);
+    if (!user) {
+      return res.status(401).json({ success: false, error: 'No account found with this email address' });
+    }
+
+    const validPassword = await bcrypt.compare(password, user.passwordHash);
+    if (!validPassword) {
+      return res.status(401).json({ success: false, error: 'Incorrect password. Please try again' });
+    }
+
+    // Check user status before generating token
+    if (user.status === UserStatus.DISABLED) {
+      return res.status(403).json({
+        success: false,
+        message: 'Your account has been disabled.',
+        error: 'Account disabled'
+      });
+    }
+
+    if (user.status === UserStatus.REACTIVATION_REQUESTED) {
+      return res.status(403).json({
+        success: false,
+        message: 'Your account reactivation has been requested and is pending approval.',
+        error: 'Reactivation pending'
+      });
+    }
+
+    if (user.status === UserStatus.PENDING) {
+      return res.status(403).json({
+        success: false,
+        message: 'Your account is pending approval by an administrator.',
+        error: 'Account pending approval'
+      });
+    }
+
+    const token = jwt.sign(
+      {
+        userId: user.id,
+        email: user.email,
+        role: user.role
+      },
+      process.env.JWT_SECRET!,
+      { expiresIn: '24h' }
+    );
+
+    // Generate refresh token
+    const refreshToken = jwt.sign(
+      { userId: user.id, type: 'refresh' },
+      process.env.JWT_REFRESH_SECRET!,
+      { expiresIn: '7d' }
+    );
+
+    res.json({
+      success: true,
+      data: {
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          role: user.role,
+          status: user.status,
+          phone: user.phone,
+          department: user.department,
+          bio: user.bio,
+          emailVerified: user.emailVerified,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt
+        },
+        accessToken: token,
+        refreshToken: refreshToken
+      }
+    });
+  } catch (error) {
+    logger.error('Login error:', error);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+// Register endpoint (adapted from Smartify)
+router.post('/register', async (req: Request<{}, {}, RegisterRequest>, res: Response) => {
+  try {
+    const { firstName, lastName, email, password, role = 'user', phone, verificationCode, department, approvalCode } = req.body;
+    const emailLower = email.toLowerCase();
+    
+    // Check if user already exists
+    const existingUser = await userService.findByEmail(emailLower);
+    if (existingUser) {
+      return res.status(400).json({ success: false, error: 'Email already registered' });
+    }
+
+    // If approval code is provided, validate it before proceeding
+    let initialStatus = UserStatus.PENDING;
+    if (approvalCode) {
+      const registrationCode = await validateRegistrationCode(approvalCode, emailLower);
+      
+      if (!registrationCode) {
+        return res.status(400).json({ success: false, error: 'Invalid approval code' });
+      }
+
+      // Set status to active since code is valid
+      initialStatus = UserStatus.ACTIVE;
+    }
+
+    logger.info(`Registering user: ${email} with status: ${initialStatus}`);
+
+    // Create the user
+    const user = await userService.create({
+      email: emailLower,
+      firstName,
+      lastName,
+      password,
+      role,
+      phone,
+      department,
+      approvalCode
+    });
+
+    // If approval code was provided, mark it as used
+    if (approvalCode) {
+      await markRegistrationCodeAsUsed(approvalCode, user.id);
+    }
+
+    res.status(201).json({
+      success: true,
+      message: initialStatus === UserStatus.ACTIVE
+        ? 'User registered successfully. You can now log in.'
+        : 'User registered successfully. Your account is pending approval.',
+      data: {
+        status: initialStatus
+      }
+    });
+
+  } catch (error) {
+    logger.error('Error in user registration:', error);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+// Validate token endpoint
+router.get('/validate-token', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ success: false, error: 'No token provided' });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+    const user = await userService.findById(decoded.userId);
+    
+    if (!user) {
+      return res.status(401).json({ success: false, error: 'User not found' });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        valid: true,
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          role: user.role,
+          status: user.status
+        }
+      }
+    });
+  } catch (error) {
+    res.status(401).json({ success: false, error: 'Invalid token' });
+  }
+});
+
+// Get pending users (for admin approval)
+router.get('/pending-users', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    // Verify admin role
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ success: false, error: 'No token provided' });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+    const adminUser = await userService.findById(decoded.userId);
+    
+    if (!adminUser || adminUser.role !== UserRole.ADMIN) {
+      return res.status(403).json({ success: false, error: 'Admin access required' });
+    }
+
+    // Get users with pending status
+    const pendingUsers = await userService.findByStatus(UserStatus.PENDING);
+    const reactivationUsers = await userService.findByStatus(UserStatus.REACTIVATION_REQUESTED);
+
+    res.json({
+      success: true,
+      data: {
+        pendingUsers,
+        reactivationUsers
+      }
+    });
+  } catch (error) {
+    logger.error('Error fetching pending users:', error);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+// Generate registration code
+router.post('/generate-code', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { usableBy, sendEmail = true } = req.body;
+    
+    // Verify admin role
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ success: false, error: 'No token provided' });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+    const adminUser = await userService.findById(decoded.userId);
+    
+    if (!adminUser || adminUser.role !== UserRole.ADMIN) {
+      return res.status(403).json({ success: false, error: 'Admin access required' });
+    }
+
+    // Generate a random code
+    const code = Math.random().toString(36).substring(2, 10).toUpperCase();
+
+    // Create registration code
+    const registrationCode = await userService.createRegistrationCode({
+      code,
+      usableBy: usableBy && typeof usableBy === 'string' ? usableBy.toLowerCase() : 'anyone',
+      createdBy: adminUser.id
+    });
+
+    // TODO: Send email if requested
+    if (usableBy && typeof usableBy === 'string' && usableBy !== 'anyone' && sendEmail) {
+      // await sendRegistrationCodeEmail(usableBy.toLowerCase(), code);
+      logger.info(`Registration code email would be sent to ${usableBy}`);
+    }
+
+    res.json({
+      success: true,
+      message: usableBy && typeof usableBy === 'string' && usableBy !== 'anyone'
+        ? sendEmail
+          ? `Registration code generated and emailed to ${usableBy}`
+          : `Registration code generated for ${usableBy} (email not sent)`
+        : 'Registration code generated successfully for anyone to use',
+      data: {
+        code,
+        id: registrationCode.id
+      }
+    });
+  } catch (error) {
+    logger.error('Error generating registration code:', error);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+// Get registration codes
+router.get('/registration-codes', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    // Verify admin role
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ success: false, error: 'No token provided' });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+    const adminUser = await userService.findById(decoded.userId);
+    
+    if (!adminUser || adminUser.role !== UserRole.ADMIN) {
+      return res.status(403).json({ success: false, error: 'Admin access required' });
+    }
+
+    const codes = await userService.getAllRegistrationCodes();
+
+    res.json({
+      success: true,
+      data: codes
+    });
+  } catch (error) {
+    logger.error('Error fetching registration codes:', error);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+// Delete registration code
+router.delete('/registration-code/:id', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const codeId = req.params.id;
+    
+    // Verify admin role
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ success: false, error: 'No token provided' });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+    const adminUser = await userService.findById(decoded.userId);
+    
+    if (!adminUser || adminUser.role !== UserRole.ADMIN) {
+      return res.status(403).json({ success: false, error: 'Admin access required' });
+    }
+
+    const deleted = await userService.deleteRegistrationCode(codeId);
+
+    if (!deleted) {
+      return res.status(404).json({ success: false, error: 'Registration code not found' });
+    }
+
+    res.json({
+      success: true,
+      message: 'Registration code deleted successfully'
+    });
+  } catch (error) {
+    logger.error('Error deleting registration code:', error);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+// Approve or reject user
+router.put('/user-approval/:id', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.params.id;
+    const { action } = req.body;
+
+    // Verify admin role
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ success: false, error: 'No token provided' });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+    const adminUser = await userService.findById(decoded.userId);
+    
+    if (!adminUser || adminUser.role !== UserRole.ADMIN) {
+      return res.status(403).json({ success: false, error: 'Admin access required' });
+    }
+
+    if (!['approve', 'reject'].includes(action)) {
+      return res.status(400).json({ success: false, error: 'Invalid action' });
+    }
+
+    const status = action === 'approve' ? UserStatus.ACTIVE : UserStatus.DISABLED;
+    const updated = await userService.updateUserStatus(userId, status, adminUser.id);
+
+    if (!updated) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    // TODO: Send email notification if approved
+    if (action === 'approve') {
+      // await sendAccountApprovalNotification(updated);
+      logger.info(`Account approval notification would be sent to ${updated.email}`);
+    }
+
+    res.json({
+      success: true,
+      message: `User ${action === 'approve' ? 'approved' : 'rejected'} successfully`
+    });
+  } catch (error) {
+    logger.error(`Error ${req.body.action}ing user:`, error);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+// Helper functions
+async function validateRegistrationCode(code: string, email: string): Promise<RegistrationCodeData | null> {
+  try {
+    const stmt = db.prepare(`
+      SELECT * FROM registration_codes 
+      WHERE code = ? AND used_by IS NULL
+    `);
+    const result = stmt.get(code) as RegistrationCodeData;
+    
+    if (!result) {
+      return null;
+    }
+
+    // Check if code is restricted to specific email
+    if (result.usable_by.toLowerCase() !== 'anyone' && result.usable_by.toLowerCase() !== email) {
+      return null;
+    }
+
+    return result;
+  } catch (error) {
+    logger.error('Error validating registration code:', error);
+    return null;
+  }
+}
+
+async function markRegistrationCodeAsUsed(code: string, userId: string): Promise<void> {
+  try {
+    const stmt = db.prepare(`
+      UPDATE registration_codes 
+      SET used_by = ?, used_at = CURRENT_TIMESTAMP 
+      WHERE code = ?
+    `);
+    stmt.run(userId, code);
+  } catch (error) {
+    logger.error('Error marking registration code as used:', error);
+  }
+}
+
+export default router;
