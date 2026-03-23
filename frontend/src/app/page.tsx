@@ -13,7 +13,7 @@ export default function Home() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
               </div>
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Siriux</h1>
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">WebApp Starter</h1>
             </div>
             <nav className="flex space-x-4">
               <Link 
@@ -42,10 +42,10 @@ export default function Home() {
             </svg>
           </div>
           <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-blue-600 bg-clip-text text-transparent mb-6 animate-fade-in">
-            Welcome to Siriux
+            Welcome to Your Next Web Application
           </h1>
           <p className="text-xl text-gray-600 mb-12 max-w-3xl mx-auto leading-relaxed">
-            Your modern roster management solution. Streamline your team management with our powerful and intuitive platform designed for efficiency and collaboration.
+            A comprehensive, production-ready starter kit for building modern web applications. Enterprise-grade architecture with authentication, user management, and scalable patterns.
           </p>
           
           <div className="space-y-4 sm:space-y-0 sm:space-x-6 sm:flex sm:justify-center">
@@ -74,10 +74,10 @@ export default function Home() {
         <div className="mt-24">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent mb-6">
-              Why Choose Siriux?
+              Why Choose This Premium Starter?
             </h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Powerful features to make roster management effortless and efficient
+              Enterprise-grade features and patterns to accelerate your web application development
             </p>
           </div>
           
@@ -88,9 +88,9 @@ export default function Home() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-4">User Management</h3>
+              <h3 className="text-xl font-semibold text-gray-900 mb-4">Enterprise Architecture</h3>
               <p className="text-gray-600 leading-relaxed">
-                Comprehensive user authentication and role-based access control with secure permissions management
+                Production-ready patterns with PostgreSQL, generic DAO, service layers, and comprehensive error handling
               </p>
             </div>
             
@@ -100,21 +100,21 @@ export default function Home() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                 </svg>
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-4">Roster Management</h3>
+              <h3 className="text-xl font-semibold text-gray-900 mb-4">Advanced Authentication</h3>
               <p className="text-gray-600 leading-relaxed">
-                Create and manage rosters with ease and efficiency using our intuitive scheduling system
+                JWT with refresh tokens, role-based access control, and secure session management
               </p>
             </div>
             
             <div className="group text-center p-8 bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border border-gray-100">
               <div className="bg-gradient-to-r from-purple-100 to-purple-200 rounded-xl w-16 h-16 flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform duration-300">
                 <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002 2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002 2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-4">Analytics & Reports</h3>
+              <h3 className="text-xl font-semibold text-gray-900 mb-4">Developer Experience</h3>
               <p className="text-gray-600 leading-relaxed">
-                Get insights into your team management with detailed reports and real-time analytics
+                Hot reload, comprehensive documentation, TypeScript throughout, and one-command setup
               </p>
             </div>
           </div>
@@ -125,7 +125,7 @@ export default function Home() {
       <footer className="bg-white/80 backdrop-blur-md mt-24 border-t border-gray-100">
         <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
           <div className="text-center text-gray-600">
-            <p>&copy; 2024 Siriux. All rights reserved.</p>
+            <p>&copy; 2026 WebApp Starter Kit. Built with ❤️ by Alsirius Ltd.</p>
           </div>
         </div>
       </footer>
