@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import { databaseManager } from './database/DatabaseManager';
 import { userRoutes } from './routes/userRoutes';
 import adminRoutes from './routes/adminRoutes';
+import snowflakeRoutes from './routes/snowflakeRoutes';
 import { tokenAuth, adminAuth } from './middleware/auth';
 import { loggingMiddleware, errorLoggingMiddleware } from './middleware/logging';
 import logger from './utils/logger';
@@ -24,7 +25,7 @@ const PORT = process.env.PORT || 3002;
 try {
   const db = databaseManager.initialize(process.env.DB_PATH || './database/siriux.db');
   logger.logSystem('DATABASE_INITIALIZED', { dbPath: process.env.DB_PATH });
-  
+
   // Log database stats
   const stats = databaseManager.getStats();
   logger.info('Database stats', stats);
@@ -48,16 +49,17 @@ app.use(loggingMiddleware);
 app.use('/api/auth', userRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/snowflake', snowflakeRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
-  logger.logSystem('HEALTH_CHECK', { 
+  logger.logSystem('HEALTH_CHECK', {
     ip: req.ip,
     userAgent: req.get('User-Agent')
   });
-  
-  res.json({ 
-    success: true, 
+
+  res.json({
+    success: true,
     message: 'Siriux Backend is running',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
@@ -70,8 +72,8 @@ app.use(errorLoggingMiddleware);
 
 // 404 handler
 app.use('*', (req, res) => {
-  res.status(404).json({ 
-    success: false, 
+  res.status(404).json({
+    success: false,
     error: 'Route not found',
     path: req.originalUrl
   });
@@ -79,12 +81,12 @@ app.use('*', (req, res) => {
 
 // Start server
 const server = app.listen(PORT, () => {
-  logger.logSystem('SERVER_STARTED', { 
+  logger.logSystem('SERVER_STARTED', {
     port: PORT,
     environment: process.env.NODE_ENV || 'development',
     logLevel: logger.getLogLevel()
   });
-  
+
   console.log(`🚀 Siriux Backend server running on port ${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
   console.log(`🔐 Auth endpoints: http://localhost:${PORT}/api/auth/*`);

@@ -55,54 +55,54 @@ export interface AppConfig {
 
 export const appConfig: AppConfig = {
   app: {
-    name: 'Siriux SaaS WebApp',
-    title: 'Siriux Starter Kit',
-    description: 'A comprehensive, production-ready web application SaaS starter kit',
-    tagline: 'Enterprise-grade architecture for modern web applications and SaaS platforms',
+    name: 'Smartify ERP Portal',
+    title: 'Smartify Portal',
+    description: 'Internal portal for managing and onboarding endpoints into the Smartify Snowflake system.',
+    tagline: 'Enterprise-grade ERP system for Snowflake data validation and multi-platform sync.',
     logo: {
-      icon: '⚡',
-      alt: 'WebApp Starter Kit Logo'
+      icon: '📊',
+      alt: 'Smartify Logo'
     }
   },
   header: {
-    title: 'Siriux Starter',
+    title: 'Smartify Portal',
     navigation: {
       signIn: 'Sign In',
       signUp: 'Sign Up'
     }
   },
   hero: {
-    title: 'Your Next Siriux Application',
-    subtitle: 'Build Faster, Scale Better, Well Architectured',
-    description: 'A comprehensive, production-ready starter kit for building modern web applications. Enterprise-grade architecture with authentication, user management, and scalable patterns.',
+    title: 'Smartify ERP System',
+    subtitle: 'Automated Snowflake Sync & Validation',
+    description: 'Use Snowflake for automated data validation and multi-platform sync. Ensure 100% accuracy with automated Snowflake schema checks.',
     cta: {
       getStarted: 'Get Started',
       signIn: 'Sign In'
     }
   },
   features: {
-    title: 'Why Choose This Premium Starter?',
-    subtitle: 'Enterprise-grade features and patterns to accelerate your web application and SaaS platform development',
+    title: 'Enterprise Features',
+    subtitle: 'Automate your data workflow with Snowflake integration',
     items: [
       {
-        icon: '👥',
-        title: 'Enterprise Architecture',
-        description: 'Production-ready patterns with PostgreSQL, generic DAO, service layers, rest api, logging, and comprehensive error handling'
+        icon: '🛡️',
+        title: 'Data Validation',
+        description: 'Ensure 100% accuracy with automated Snowflake schema checks.'
       },
       {
-        icon: '🔐',
-        title: 'Advanced Authentication',
-        description: 'JWT with refresh tokens, role-based access control, and secure session management'
+        icon: '🗄️',
+        title: 'Snowflake Sync',
+        description: 'Direct integration with Snowflake as the single source of truth.'
       },
       {
-        icon: '📊',
-        title: 'Developer Experience',
-        description: 'Hot reload, comprehensive documentation, TypeScript throughout, and one-command setup'
+        icon: '⚡',
+        title: 'Automated Workflow',
+        description: 'One submission syncs to Vistar, Dropbox, and Hivestack.'
       }
     ]
   },
   documentation: {
-    title: 'Premium WebApp Starter Kit',
+    title: 'Smartify ERP Documentation',
     button: 'Documentation',
     sections: {
       overview: 'Quick Overview',
@@ -115,6 +115,6 @@ export const appConfig: AppConfig = {
     }
   },
   footer: {
-    copyright: '© 2026 Siriux WebApp SaaS Starter Kit, built with ❤️ by developers at Alsirius Ltd.'
+    copyright: '© 2026 Alsirius Ltd. For internal use only.'
   }
 };

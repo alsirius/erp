@@ -20,6 +20,7 @@ frontend/node_modules/
 .pnp.js
 frontend/package-lock.json
 backend/package-lock.json
+package-lock.json
 
 # Testing
 coverage/
