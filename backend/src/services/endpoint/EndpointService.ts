@@ -1,9 +1,9 @@
 import { Endpoint, CreateEndpointDto, UpdateEndpointDto, ServiceResponse } from '../../types';
 import { QueryRequest, ListResponse } from '../../types/api';
-import { EndpointDAO } from '../../dao/endpoint/EndpointDAO';
+import { IGenericDAO } from '../../dao/GenericDAO';
 
 export class EndpointService {
-  constructor(private endpointDao: EndpointDAO) {}
+  constructor(private endpointDao: IGenericDAO<Endpoint, CreateEndpointDto, UpdateEndpointDto>) {}
 
   async createEndpoint(data: CreateEndpointDto): Promise<ServiceResponse<Endpoint>> {
     try {

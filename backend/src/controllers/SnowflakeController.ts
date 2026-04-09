@@ -11,11 +11,12 @@ export class SnowflakeController {
         try {
             const query = `
                 SELECT ENDPOINT_ID, NAME, ADDRESS, CREATED_AT, VALIDATION_STATUS
-                FROM STAGING.PENDING_ENDPOINTS
+                FROM ${process.env.SNOWFLAKE_DATABASE}.${process.env.SNOWFLAKE_SCHEMA}.PENDING_ENDPOINTS
                 ORDER BY CREATED_AT DESC
                 LIMIT 10
             `;
 
+            console.log('SQL Query:', query);
             const results = await querySnowflake(query);
             
             res.json({

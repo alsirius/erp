@@ -40,7 +40,7 @@ export abstract class BaseDAO<T, CreateDto, UpdateDto> implements IGenericDAO<T,
     const query = `
       INSERT INTO ${this.tableName} (${fields.join(', ')})
       VALUES (${placeholders})
-      RETURNING *
+      ${this.getReturningClause()}
     `;
     
     try {
@@ -80,7 +80,7 @@ export abstract class BaseDAO<T, CreateDto, UpdateDto> implements IGenericDAO<T,
     // Add ORDER BY clause
     if (query?.sort) {
       const sortConditions = Object.entries(query.sort)
-        .map(([field, direction]) => `${field} ${direction.toUpperCase()}`)
+        .map(([field, direction]) => `${this.formatIdentifier(field)} ${direction.toUpperCase()}`)
         .join(', ');
       sql += ` ORDER BY ${sortConditions}`;
     }
@@ -268,59 +268,68 @@ export abstract class BaseDAO<T, CreateDto, UpdateDto> implements IGenericDAO<T,
   }
 
   // Protected helper methods
+  protected formatIdentifier(id: string): string {
+    return id;
+  }
+
+  protected getReturningClause(): string {
+    return 'RETURNING *';
+  }
+
   protected abstract executeQuery(query: string, params: any[]): Promise<any>;
 
   protected buildFilterConditions(filters: Record<string, any>, params: any[]): string[] {
     const conditions: string[] = [];
 
     Object.entries(filters).forEach(([field, value]) => {
+      const formattedField = this.formatIdentifier(field);
       if (value === undefined || value === null) {
         return;
       }
 
       if (Array.isArray(value)) {
         const placeholders = value.map(() => '?').join(', ');
-        conditions.push(`${field} IN (${placeholders})`);
+        conditions.push(`${formattedField} IN (${placeholders})`);
         params.push(...value);
       } else if (typeof value === 'object' && value !== null) {
         // Handle range queries, like operators
         Object.entries(value).forEach(([operator, operatorValue]) => {
           switch (operator) {
             case '$gt':
-              conditions.push(`${field} > ?`);
+              conditions.push(`${formattedField} > ?`);
               params.push(operatorValue);
               break;
             case '$gte':
-              conditions.push(`${field} >= ?`);
+              conditions.push(`${formattedField} >= ?`);
               params.push(operatorValue);
               break;
             case '$lt':
-              conditions.push(`${field} < ?`);
+              conditions.push(`${formattedField} < ?`);
               params.push(operatorValue);
               break;
             case '$lte':
-              conditions.push(`${field} <= ?`);
+              conditions.push(`${formattedField} <= ?`);
               params.push(operatorValue);
               break;
             case '$ne':
-              conditions.push(`${field} != ?`);
+              conditions.push(`${formattedField} != ?`);
               params.push(operatorValue);
               break;
             case '$like':
-              conditions.push(`${field} LIKE ?`);
+              conditions.push(`${formattedField} LIKE ?`);
               params.push(`%${operatorValue}%`);
               break;
             case '$ilike':
-              conditions.push(`${field} ILIKE ?`);
+              conditions.push(`${formattedField} ILIKE ?`);
               params.push(`%${operatorValue}%`);
               break;
             default:
-              conditions.push(`${field} = ?`);
+              conditions.push(`${formattedField} = ?`);
               params.push(operatorValue);
           }
         });
       } else {
-        conditions.push(`${field} = ?`);
+        conditions.push(`${formattedField} = ?`);
         params.push(value);
       }
     });
@@ -408,3 +417,60 @@ export abstract class SQLiteDAO<T, CreateDto, UpdateDto> extends BaseDAO<T, Crea
     };
   }
 }
+
+// Snowflake-specific implementation
+export abstract class SnowflakeDAO<T, CreateDto, UpdateDto> extends BaseDAO<T, CreateDto, UpdateDto> {
+  constructor(tableName: string, protected queryExecutor: (sql: string, binds?: any[]) => Promise<any[]>) {
+    super(tableName);
+  }
+
+  protected async executeQuery(query: string, params: any[]): Promise<any> {
+    // Snowflake uses ? for positional binds (Standard API) or :1, :2
+    // We assume the queryExecutor handles binds correctly
+    const rows = await this.queryExecutor(query, params);
+    return {
+      rows: rows,
+      rowCount: rows.length,
+    };
+  }
+
+  // Snowflake doesn't support RETURNING * in the same way
+  protected getReturningClause(): string {
+    return '';
+  }
+
+  // Override create to handle Snowflake's lack of RETURNING
+  async create(data: CreateDto, context?: RequestContext): Promise<T> {
+    this.validateCreateData(data);
+    
+    const fields = this.getInsertFields();
+    const values = fields.map(field => this.escapeValue(data[field as keyof CreateDto]));
+    const placeholders = fields.map(() => '?').join(', ');
+    
+    const query = `
+      INSERT INTO ${this.tableName} (${fields.join(', ')})
+      VALUES (${placeholders})
+    `;
+    
+    try {
+      await this.executeQuery(query, values);
+      // For Snowflake, we might need a separate query to get the created record if it has defaults
+      // But for now, we'll return the object as sent (with the ID)
+      return { ...data } as unknown as T;
+    } catch (error) {
+      throw new Error(`Failed to create ${this.tableName} in Snowflake: ${error}`);
+    }
+  }
+
+  protected formatIdentifier(id: string): string {
+    return id.toUpperCase();
+  }
+
+  // Override buildFilterConditions for Snowflake (case-insensitive search often uses ILIKE)
+  protected buildFilterConditions(filters: Record<string, any>, params: any[]): string[] {
+    const conditions = super.buildFilterConditions(filters, params);
+    // You could customize Snowflake specific operators here if needed
+    return conditions;
+  }
+}
+
