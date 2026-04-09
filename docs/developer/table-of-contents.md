@@ -47,6 +47,12 @@
 - Error handling
 - Performance optimization
 
+### [Endpoint Integration](./endpoint-integration.md)
+- Data flow architecture
+- SQLite implementation details
+- Future Snowflake migration path
+- Component & Service mapping
+
 ### [Testing Strategy](./testing-strategy.md)
 - Unit testing guidelines
 - Integration testing

@@ -8,7 +8,9 @@ Siriux is a modern roster management solution built with a clean separation betw
 ### 1. Separation of Concerns
 - **Frontend**: Next.js 14 with TypeScript, responsible for UI/UX only
 - **Backend**: Express.js with TypeScript, handles business logic and data
-- **Database**: SQLite with DAO pattern for data access abstraction
+- **Database**: Multi-engine support via Generic DAO pattern
+  - **Development**: SQLite (Local)
+  - **Production/Staging**: Snowflake (Corporate Data Warehouse)
 - **Communication**: REST APIs with JWT-based authentication
 
 ### 2. Security First
@@ -148,7 +150,7 @@ interface ApiResponse<T> {
 ### Backend
 - **Runtime**: Node.js with TypeScript
 - **Framework**: Express.js
-- **Database**: SQLite with better-sqlite3
+- **Database**: SQLite (better-sqlite3) & Snowflake (snowflake-sdk)
 - **Authentication**: JWT with bcrypt
 - **Documentation**: OpenAPI/Swagger
 - **Testing**: Jest + Supertest
