@@ -113,7 +113,7 @@ export default function DashboardPage() {
                             <Activity className="text-cyan-400" />
                             <h2 className="text-xl font-bold text-white">Recent Snowflake Activity</h2>
                         </div>
-                        <button className="text-sm font-medium text-cyan-400 hover:text-cyan-300">View All</button>
+                        <Link href="/dashboard/endpoints" className="text-sm font-medium text-cyan-400 hover:text-cyan-300">View All</Link>
                     </div>
 
                     <div className="space-y-6">

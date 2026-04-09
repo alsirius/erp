@@ -356,3 +356,76 @@ export enum HttpStatus {
   CONFLICT = 409,
   INTERNAL_SERVER_ERROR = 500
 }
+
+// Endpoint Management Types (Smartify Specification)
+export interface Endpoint {
+  id: string; // Mapped from endpoint_id
+  name: string;
+  address?: string;
+  latitude: number;
+  longitude: number;
+  screenType: 'inside' | 'outside'; // Mapped from screen_type
+  venueTypeId: number; // Mapped from venue_type_id
+  vistarVenueGroupId: string; // Mapped from vistar_venue_group_id
+  venueHoursOpen?: string; // Mapped from venue_hours_open (TIME)
+  venueHoursClose?: string; // Mapped from venue_hours_close (TIME)
+  is24Hour: boolean; // Mapped from is_24_hour
+  isLgScreen: boolean; // Mapped from is_lg_screen
+  pocEmail?: string; // Mapped from poc_email
+  
+  // Computed fields (from spec)
+  cpmFloorCents?: number; // Mapped from cpm_floor_cents
+  impressionsPerSpot?: number; // Mapped from impressions_per_spot
+  operatingMinutes?: any; // JSON array (MINUTE_OF_WEEK)
+  cortexSupported?: boolean; // Mapped from cortex_supported
+  
+  // Status fields
+  validationStatus: 'pending' | 'valid' | 'invalid';
+  validationErrors?: any;
+  vistarVenueId?: string;
+  vistarStatus: 'pending' | 'active' | 'error';
+  dropboxFolderUrl?: string;
+  dropboxStatus: 'pending' | 'active' | 'error';
+  hivestackStatus: 'pending' | 'active' | 'error';
+  broadsignStatus: 'pending' | 'active' | 'error';
+  onboardingComplete: boolean;
+  
+  // Timestamps
+  createdAt: Date;
+  updatedAt: Date;
+  deleted: number;
+}
+
+export interface CreateEndpointDto {
+  id: string; // endpoint_id
+  name: string;
+  address?: string;
+  latitude: number;
+  longitude: number;
+  screenType: 'inside' | 'outside';
+  venueTypeId: number;
+  vistarVenueGroupId: string;
+  venueHoursOpen?: string;
+  venueHoursClose?: string;
+  is24Hour?: boolean;
+  isLgScreen?: boolean;
+  pocEmail?: string;
+}
+
+export interface UpdateEndpointDto {
+  name?: string;
+  address?: string;
+  latitude?: number;
+  longitude?: number;
+  screenType?: 'inside' | 'outside';
+  venueTypeId?: number;
+  vistarVenueGroupId?: string;
+  venueHoursOpen?: string;
+  venueHoursClose?: string;
+  is24Hour?: boolean;
+  isLgScreen?: boolean;
+  pocEmail?: string;
+  validationStatus?: 'pending' | 'valid' | 'invalid';
+  vistarStatus?: 'pending' | 'active' | 'error';
+  onboardingComplete?: boolean;
+}

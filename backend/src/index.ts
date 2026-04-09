@@ -1,8 +1,13 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+
+const envFile = process.env.NODE_ENV === 'production' ? '.env.production' : '.env.development';
+dotenv.config({ path: __dirname + `/../${envFile}` });
+
 import { databaseManager } from './database/DatabaseManager';
 import { userRoutes } from './routes/userRoutes';
+import { endpointRoutes } from './routes/endpointRoutes';
 import adminRoutes from './routes/adminRoutes';
 import snowflakeRoutes from './routes/snowflakeRoutes';
 import { tokenAuth, adminAuth } from './middleware/auth';
@@ -10,8 +15,6 @@ import { loggingMiddleware, errorLoggingMiddleware } from './middleware/logging'
 import logger from './utils/logger';
 
 // Load environment variables based on NODE_ENV
-const envFile = process.env.NODE_ENV === 'production' ? '.env.production' : '.env.development';
-dotenv.config({ path: __dirname + `/../${envFile}` });
 
 // Log which environment file is loaded
 console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
@@ -48,6 +51,7 @@ app.use(loggingMiddleware);
 // Routes
 app.use('/api/auth', userRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/endpoints', endpointRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/snowflake', snowflakeRoutes);
 
